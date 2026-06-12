@@ -23,9 +23,9 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { readFileSync, existsSync } from "fs";
-import { resolve } from "path";
-import { homedir } from "os";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { homedir } from "node:os";
 import { createSheetsClientFromConfig } from "./sheets-client.mjs";
 
 // ─── Config ──────────────────────────────────────────────────────────────────

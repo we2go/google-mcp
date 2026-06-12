@@ -13,11 +13,11 @@
  *   5. Token auto-refreshes forever
  */
 
+import http from "node:http";
+import { URL } from "node:url";
 import chalk from "chalk";
-import ora from "ora";
 import inquirer from "inquirer";
-import http from "http";
-import { URL } from "url";
+import ora from "ora";
 import { loadConfig, saveConfig, extractSpreadsheetId } from "../../config/config.mjs";
 import {
   createServiceAccountSheetsClient,
@@ -27,7 +27,7 @@ import {
   generateAuthUrl,
   exchangeCodeForTokens,
 } from "../../server/oauth2-client.mjs";
-import { showMCPConfig } from "./helpers/show-mcp-config.mjs";
+import { generateIDEConfigs } from "./helpers/generate-ide-configs.mjs";
 
 export async function initCommand(options) {
   const authType = options.auth || "service-account";
@@ -143,7 +143,7 @@ async function setupServiceAccount(spreadsheetId) {
       sheets: sheetList,
     });
 
-    printSuccess(configPath, sheetList);
+    await afterConnectionSuccess(configPath, sheetList);
   } catch (err) {
     spinner.fail(`Connection failed: ${err.message}`);
     printServiceAccountTroubleshooting();
@@ -358,24 +358,24 @@ async function completeOAuthSetup(spreadsheetId, clientId, clientSecret, code) {
       sheets: sheetList,
     });
 
-    printSuccess(configPath, sheetList);
+    await afterConnectionSuccess(configPath, sheetList);
   } catch (err) {
     spinner.fail(`Connection failed: ${err.message}`);
     printOAuthTroubleshooting();
   }
 }
 
-function printSuccess(configPath, sheetList) {
+/**
+ * Shared post-connection step: save config → show summary → generate IDE configs.
+ */
+async function afterConnectionSuccess(configPath, sheetList) {
   console.log(chalk.green(`✅ Configuration saved to ${configPath}`));
   console.log();
 
-  console.log(chalk.bold("🚀 You're ready!"));
+  console.log(chalk.bold("🚀 Connection verified!"));
   console.log();
   console.log("  Test connection:");
   console.log(chalk.cyan("    npx google-sheet-mcp test"));
-  console.log();
-  console.log("  Check token health (OAuth2 only):");
-  console.log(chalk.cyan("    npx google-sheet-mcp token-status"));
   console.log();
   console.log("  List sheets:");
   console.log(chalk.cyan("    npx google-sheet-mcp list"));
@@ -386,7 +386,8 @@ function printSuccess(configPath, sheetList) {
   );
   console.log();
 
-  showMCPConfig();
+  // Step 4: Generate IDE MCP configs
+  await generateIDEConfigs({ cwd: process.cwd() });
 }
 
 function printServiceAccountTroubleshooting() {

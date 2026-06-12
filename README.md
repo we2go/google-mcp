@@ -47,7 +47,12 @@ You'll go through a browser-based OAuth2 flow. A refresh token is saved and **au
 
 ### 2. Connect your IDE
 
-Add to **`.cursor/mcp.json`** (Cursor):
+The `init` wizard will generate IDE configs for you automatically — just pick **Project** or **System-wide** when asked.
+
+If you prefer manual setup, add to your IDE config:
+
+<details>
+<summary>Cursor — <code>.cursor/mcp.json</code></summary>
 
 ```json
 {
@@ -59,8 +64,10 @@ Add to **`.cursor/mcp.json`** (Cursor):
   }
 }
 ```
+</details>
 
-Or **`.vscode/mcp.json`** (VS Code):
+<details>
+<summary>VS Code — <code>.vscode/mcp.json</code></summary>
 
 ```json
 {
@@ -73,6 +80,37 @@ Or **`.vscode/mcp.json`** (VS Code):
   }
 }
 ```
+</details>
+
+<details>
+<summary>Claude Code — <code>.claude/mcp.json</code></summary>
+
+```json
+{
+  "mcpServers": {
+    "google-sheets": {
+      "command": "npx",
+      "args": ["google-sheet-mcp"]
+    }
+  }
+}
+```
+</details>
+
+<details>
+<summary>Codex CLI — <code>codex.json</code></summary>
+
+```json
+{
+  "mcpServers": {
+    "google-sheets": {
+      "command": "npx",
+      "args": ["-y", "google-sheet-mcp"]
+    }
+  }
+}
+```
+</details>
 
 More configs: [`examples/`](examples/) — Cursor, VS Code, Claude, Codex.
 

@@ -1,18 +1,19 @@
 # 🚀 Быстрый старт (для новичков)
 
-> Время: ~5 минут. Никаких специальных знаний не нужно.
+> Время: ~3 минуты. Никаких специальных знаний не нужно.
 
 ## Шаг 1. Создать сервисный аккаунт Google
 
 1. Открой [Google Cloud Console](https://console.cloud.google.com/)
-2. Создай проект — кнопка в верхней панели, название любое
-3. В левом меню: **APIs & Services** → **Library**
-4. Найди **Google Sheets API** → нажми **Enable**
-5. В левом меню: **Credentials** → **Create Credentials** → **Service Account**
-6. Назови, например, `mcp-bot` → **Create** → **Done**
-7. Нажми на созданный аккаунт → вкладка **Keys** → **Add Key** → **Create New Key** → **JSON**
-8. Скачается файл `*.json` — сохрани, не теряй
-9. Открой свою Google Таблицу → **Share** → вставь email из JSON (поле `client_email`) → дай права **Редактор**
+2. Авторизуйся или выбери существующий аккаунт
+3. Создай проект — кнопка в верхней панели, название любое
+4. В левом меню: **APIs & Services** → **Library**
+5. Найди **Google Sheets API** → нажми **Enable**
+6. В левом меню: **Credentials** → **Create Credentials** → **Service Account**
+7. Назови, например, `mcp-bot` → **Create** → **Done**
+8. Нажми на созданный аккаунт → вкладка **Keys** → **Add Key** → **Create New Key** → **JSON**
+9. Скачается файл `*.json` — сохрани, не теряй
+10. Открой свою Google Таблицу → **Share** → вставь email из JSON (поле `client_email`) → дай права **Редактор**
 
 > 📺 Нужен видео-гайд? Поищи на YouTube: [«Google Service Account create JSON key»](https://www.youtube.com/results?search_query=google+service+account+create+json+key)
 
@@ -32,47 +33,22 @@
 npx google-sheet-mcp init
 ```
 
-Мастер задаст два вопроса:
+Мастер задаст вопросы и сделает всё сам:
 
 | Вопрос | Что ввести |
 |--------|-----------|
 | **Google Sheet URL** | Ссылку на таблицу — скопируй из адресной строки браузера |
 | **Path to credentials JSON** | Путь к скачанному JSON-файлу — перетащи файл в окно терминала |
+| **Где установить MCP-конфиг?** | Выбери «Project» — файлы создадутся в папке твоего проекта |
 
-Готово! Настройки сохранятся в файл `.google-sheet-mcp.json`.
+Мастер автоматически:
+- Сохранит конфиг в `.google-sheet-mcp.json`
+- Проверит доступ к таблице и покажет найденные листы
+- **Создаст `.cursor/mcp.json`, `.vscode/mcp.json`, `.claude/mcp.json` и `codex.json`** в твоём проекте
 
-## Шаг 4. Подключить к IDE
+Всё! Файлы созданы, ничего вручную делать не нужно.
 
-Создай файл в папке своего проекта:
-
-**Cursor** → файл `.cursor/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "google-sheets": {
-      "command": "npx",
-      "args": ["google-sheet-mcp"]
-    }
-  }
-}
-```
-
-**VS Code / Copilot** → файл `.vscode/mcp.json`:
-
-```json
-{
-  "servers": {
-    "google-sheets": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["google-sheet-mcp"]
-    }
-  }
-}
-```
-
-## Шаг 5. Перезапустить IDE
+## Шаг 4. Перезапустить IDE
 
 Закрой и открой редактор. Готово! 🎉
 

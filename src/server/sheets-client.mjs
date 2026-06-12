@@ -8,8 +8,8 @@
  */
 
 import { google } from "googleapis";
-import { existsSync } from "fs";
-import { resolve } from "path";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { createOAuth2Client } from "./oauth2-client.mjs";
 
 let _sheetsClient = null;

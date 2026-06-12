@@ -11,9 +11,9 @@
  *   3. ~/.google-sheet-mcp.json (global)
  */
 
-import { readFileSync, writeFileSync, existsSync } from "fs";
-import { homedir } from "os";
-import { join, resolve } from "path";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 
 const CONFIG_FILENAME = ".google-sheet-mcp.json";
 
