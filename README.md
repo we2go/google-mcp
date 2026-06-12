@@ -19,6 +19,8 @@ Once configured, you can tell your AI agent:
 
 ## ⚡ Quick Start
 
+> 🇷🇺 **Инструкция на русском:** [docs/quickstart-ru.md](docs/quickstart-ru.md) — пошагово для новичков.
+
 Pick the auth method that fits your use case:
 
 ### Service Account (recommended for team/automation)
