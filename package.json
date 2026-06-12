@@ -17,12 +17,12 @@
   "author": "MUST Dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/we2go/google-mcp"
+    "url": "git+https://github.com/we2go/google-mcp.git"
   },
   "type": "module",
   "main": "./src/server/server.mjs",
   "bin": {
-    "google-sheet-mcp": "./src/cli/cli.mjs"
+    "google-sheet-mcp": "src/cli/cli.mjs"
   },
   "files": [
     "src/",
