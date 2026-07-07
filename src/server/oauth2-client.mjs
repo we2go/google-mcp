@@ -1,21 +1,31 @@
 /**
- * OAuth2 Google Sheets client.
+ * OAuth2 Google client — shared by Sheets + Docs.
  *
  * Uses refresh token — no browser login needed after initial setup.
  * Token auto-refreshes via googleapis library.
  *
+ * Scopes: spreadsheets + documents + drive.readonly (for listing).
+ *
  * Setup flow (one-time):
  *   1. Create OAuth2 credentials in Google Cloud Console
- *   2. Run `npx google-sheet-mcp init --auth oauth`
+ *   2. Run `npx google-mcp init --auth oauth`
  *   3. Follow browser OAuth flow
  *   4. Refresh token is saved and auto-refreshed forever
  *
  * Token health:
- *   - `npx google-sheet-mcp token-status` — check if token is valid
- *   - Invalid token → run `npx google-sheet-mcp init --auth oauth` again
+ *   - `npx google-mcp token-status` — check if token is valid
+ *   - Invalid token → run `npx google-mcp init --auth oauth` again
  */
 
 import { google } from "googleapis";
+
+// ─── Unified OAuth2 scopes for Sheets + Docs ─────────────────────────────────
+
+export const ALL_SCOPES = [
+  "https://www.googleapis.com/auth/spreadsheets",
+  "https://www.googleapis.com/auth/documents",
+  "https://www.googleapis.com/auth/drive.readonly",
+];
 
 /**
  * Create OAuth2 client from stored refresh token.
@@ -33,7 +43,7 @@ export function createOAuth2Client(credentials) {
 
   if (!refresh_token) {
     throw new Error(
-      "Missing refresh_token. Run `npx google-sheet-mcp init --auth oauth` to complete OAuth2 setup."
+      "Missing refresh_token. Run `npx google-mcp init --auth oauth` to complete OAuth2 setup."
     );
   }
 
@@ -68,7 +78,7 @@ export function generateAuthUrl(client_id, client_secret) {
   return auth.generateAuthUrl({
     access_type: "offline", // ← CRITICAL: forces refresh_token to be returned
     prompt: "consent",       // ← CRITICAL: always show consent (ensures refresh_token every time)
-    scope: ["https://www.googleapis.com/auth/spreadsheets"],
+    scope: ALL_SCOPES,
   });
 }
 
@@ -125,7 +135,7 @@ export async function validateRefreshToken(credentials) {
       valid: false,
       error: err.message,
       hint:
-        "The refresh token is invalid or revoked. Run `npx google-sheet-mcp init --auth oauth` to re-authenticate.",
+        "The refresh token is invalid or revoked. Run `npx google-mcp init --auth oauth` to re-authenticate.",
     };
   }
 }

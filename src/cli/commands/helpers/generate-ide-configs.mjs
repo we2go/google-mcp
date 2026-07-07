@@ -22,37 +22,37 @@ import inquirer from "inquirer";
 
 const CURSOR_TEMPLATE = {
   mcpServers: {
-    "google-sheets": {
+    "google-mcp": {
       command: "npx",
-      args: ["google-sheet-mcp"],
+      args: ["google-mcp"],
     },
   },
 };
 
 const VSCODE_TEMPLATE = {
   servers: {
-    "google-sheets": {
+    "google-mcp": {
       type: "stdio",
       command: "npx",
-      args: ["google-sheet-mcp"],
+      args: ["google-mcp"],
     },
   },
 };
 
 const CLAUDE_TEMPLATE = {
   mcpServers: {
-    "google-sheets": {
+    "google-mcp": {
       command: "npx",
-      args: ["google-sheet-mcp"],
+      args: ["google-mcp"],
     },
   },
 };
 
 const CODEX_TEMPLATE = {
   mcpServers: {
-    "google-sheets": {
+    "google-mcp": {
       command: "npx",
-      args: ["-y", "google-sheet-mcp"],
+      args: ["-y", "google-mcp"],
     },
   },
 };

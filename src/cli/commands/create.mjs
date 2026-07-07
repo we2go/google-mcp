@@ -10,7 +10,7 @@ import { createSheetsClient } from "../../server/sheets-client.mjs";
 export async function createCommand(options) {
   const config = loadConfig();
   if (!config) {
-    console.error(chalk.red("❌ No configuration found. Run `npx google-sheet-mcp init` first."));
+    console.error(chalk.red("❌ No configuration found. Run `npx google-mcp init` first."));
     process.exit(1);
   }
 
@@ -36,7 +36,7 @@ export async function createCommand(options) {
 
     spinner.succeed(`Sheet "${options.sheet}" created`);
     console.log();
-    console.log(`  Read it: ${chalk.cyan(`npx google-sheet-mcp read -s "${options.sheet}"`)}`);
+    console.log(`  Read it: ${chalk.cyan(`npx google-mcp read -s "${options.sheet}"`)}`);
 
   } catch (err) {
     spinner.fail(`Failed: ${err.message}`);

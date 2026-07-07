@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 /**
- * google-sheet-mcp CLI
+ * google-mcp CLI
  *
  * Usage:
- *   npx google-sheet-mcp init        — Setup (service account, default)
- *   npx google-sheet-mcp init --auth oauth  — Setup (OAuth2, personal account)
- *   npx google-sheet-mcp test        — Test connection
- *   npx google-sheet-mcp token-status — Check OAuth2 token health
- *   npx google-sheet-mcp list        — List sheets
- *   npx google-sheet-mcp read        — Read sheet data
- *   npx google-sheet-mcp config      — Show current config
+ *   npx google-mcp init        — Setup (service account, default)
+ *   npx google-mcp init --auth oauth  — Setup (OAuth2, personal account)
+ *   npx google-mcp test        — Test connection
+ *   npx google-mcp token-status — Check OAuth2 token health
+ *   npx google-mcp list        — List sheet tabs
+ *   npx google-mcp read        — Read sheet data
+ *   npx google-mcp config      — Show current config
+ *   npx google-mcp docs-list   — List Google Docs
+ *   npx google-mcp docs-read   — Read a Google Doc
+ *   npx google-mcp docs-create — Create a new Google Doc
  */
 
 import { program } from "commander";
@@ -21,13 +24,16 @@ import { configCommand } from "./commands/config.mjs";
 import { createCommand } from "./commands/create.mjs";
 import { appendCommand } from "./commands/append.mjs";
 import { tokenStatusCommand } from "./commands/token-status.mjs";
+import { docsListCommand } from "./commands/docs-list.mjs";
+import { docsReadCommand } from "./commands/docs-read.mjs";
+import { docsCreateCommand } from "./commands/docs-create.mjs";
 
 program
-  .name("google-sheet-mcp")
+  .name("google-mcp")
   .description(
-    "Connect Google Sheets to Cursor, VS Code, Claude Code and AI agents in 3 minutes."
+    "Connect Google Sheets & Docs to Cursor, VS Code, Claude Code and AI agents in 3 minutes."
   )
-  .version("1.0.0");
+  .version("2.0.0");
 
 program
   .command("init")
@@ -83,5 +89,27 @@ program
   .command("token-status")
   .description("Check OAuth2 token health (validates refresh token)")
   .action(tokenStatusCommand);
+
+// ─── Docs commands ───────────────────────────────────────────────────────────
+
+program
+  .command("docs-list")
+  .description("List Google Docs in your Drive")
+  .option("-q, --query <text>", "Filter by name (contains)")
+  .option("-l, --limit <number>", "Max results (default: 20)")
+  .action(docsListCommand);
+
+program
+  .command("docs-read")
+  .description("Read a Google Doc by ID")
+  .requiredOption("-d, --document <id>", "Google Doc ID")
+  .option("--full", "Return structured body instead of plain text")
+  .action(docsReadCommand);
+
+program
+  .command("docs-create")
+  .description("Create a new Google Doc")
+  .requiredOption("-t, --title <title>", "Document title")
+  .action(docsCreateCommand);
 
 program.parse(process.argv);

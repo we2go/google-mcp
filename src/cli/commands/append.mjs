@@ -10,7 +10,7 @@ import { createSheetsClient } from "../../server/sheets-client.mjs";
 export async function appendCommand(options) {
   const config = loadConfig();
   if (!config) {
-    console.error(chalk.red("❌ No configuration found. Run `npx google-sheet-mcp init` first."));
+    console.error(chalk.red("❌ No configuration found. Run `npx google-mcp init` first."));
     process.exit(1);
   }
 

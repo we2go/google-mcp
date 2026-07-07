@@ -1,20 +1,30 @@
-# Google Sheets MCP Server
+# Google MCP Server
 
-Connect Google Sheets to Cursor, VS Code, Claude Code and AI agents — **in 3 minutes**.
+Connect Google Sheets & Docs to Cursor, VS Code, Claude Code and AI agents — **in 3 minutes**.
 
-> Your spreadsheet becomes a data source that AI agents can read, write, and query.
+> Your spreadsheets and documents become data sources that AI agents can read, write, and query.
 
 ## 🎯 What is this?
 
-A **Model Context Protocol (MCP) server** that lets AI coding agents (Cursor, Copilot, Claude, Codex) interact with Google Sheets as a database.
+A **Model Context Protocol (MCP) server** that lets AI coding agents (Cursor, Copilot, Claude, Codex) interact with Google Sheets and Google Docs.
 
 Once configured, you can tell your AI agent:
 
+**📊 Sheets:**
 ```
 "Read all users from the Users sheet"
 "Add a new order row: name=Anton, total=150"
 "Update the status column for row 23"
 "List all sheets in my spreadsheet"
+```
+
+**📄 Docs:**
+```
+"Create a new document titled 'Sprint Report'"
+"Read the content of my meeting notes"
+"Append a summary paragraph to the project doc"
+"Find and replace all 'TODO' with 'DONE'"
+"List all my Google Docs"
 ```
 
 ## ⚡ Quick Start
@@ -26,19 +36,19 @@ Pick the auth method that fits your use case:
 ### Service Account (recommended for team/automation)
 
 ```bash
-npx google-sheet-mcp init
+npx google-mcp init
 ```
 
 You'll need:
 - **Google Sheet URL** — paste your sheet link
 - **Service Account JSON key** — download from Google Cloud Console
 
-### Personal Account via OAuth2 (for personal sheets)
+### Personal Account via OAuth2 (for personal sheets/docs)
 
-Use when you want the AI to act **on your behalf** — access your private sheets without sharing them with a service account.
+Use when you want the AI to act **on your behalf** — access your private sheets and docs without sharing them with a service account.
 
 ```bash
-npx google-sheet-mcp init --auth oauth
+npx google-mcp init --auth oauth
 ```
 
 You'll go through a browser-based OAuth2 flow. A refresh token is saved and **auto-refreshed** — you never need to re-login.
@@ -57,9 +67,9 @@ If you prefer manual setup, add to your IDE config:
 ```json
 {
   "mcpServers": {
-    "google-sheets": {
+    "google-mcp": {
       "command": "npx",
-      "args": ["google-sheet-mcp"]
+      "args": ["google-mcp"]
     }
   }
 }
@@ -72,10 +82,10 @@ If you prefer manual setup, add to your IDE config:
 ```json
 {
   "servers": {
-    "google-sheets": {
+    "google-mcp": {
       "type": "stdio",
       "command": "npx",
-      "args": ["google-sheet-mcp"]
+      "args": ["google-mcp"]
     }
   }
 }
@@ -88,9 +98,9 @@ If you prefer manual setup, add to your IDE config:
 ```json
 {
   "mcpServers": {
-    "google-sheets": {
+    "google-mcp": {
       "command": "npx",
-      "args": ["google-sheet-mcp"]
+      "args": ["google-mcp"]
     }
   }
 }
@@ -103,9 +113,9 @@ If you prefer manual setup, add to your IDE config:
 ```json
 {
   "mcpServers": {
-    "google-sheets": {
+    "google-mcp": {
       "command": "npx",
-      "args": ["-y", "google-sheet-mcp"]
+      "args": ["-y", "google-mcp"]
     }
   }
 }
@@ -116,26 +126,32 @@ More configs: [`examples/`](examples/) — Cursor, VS Code, Claude, Codex.
 
 ### 3. Restart your IDE
 
-That's it. Your AI agent now has access to your Google Sheet.
+That's it. Your AI agent now has access to your Google Sheets and Docs.
 
 ## 🛠 CLI Commands
 
 | Command | Description |
 |---------|------------|
-| `npx google-sheet-mcp init` | Interactive setup wizard (service account) |
-| `npx google-sheet-mcp init --auth oauth` | Setup with personal Google account (OAuth2) |
-| `npx google-sheet-mcp test` | Test connection + list sheets |
-| `npx google-sheet-mcp token-status` | Check OAuth2 refresh token health |
-| `npx google-sheet-mcp list` | List all sheets in the spreadsheet |
-| `npx google-sheet-mcp read -s <name>` | Read data from a sheet |
-| `npx google-sheet-mcp create -s <name>` | Create a new sheet tab |
-| `npx google-sheet-mcp append -s <name> -d '{"col":"val"}'` | Append a row |
-| `npx google-sheet-mcp config` | Show current configuration |
+| `npx google-mcp init` | Interactive setup wizard (service account) |
+| `npx google-mcp init --auth oauth` | Setup with personal Google account (OAuth2) |
+| `npx google-mcp test` | Test connection + list sheets |
+| `npx google-mcp token-status` | Check OAuth2 refresh token health |
+| `npx google-mcp list` | List all sheets in the spreadsheet |
+| `npx google-mcp read -s <name>` | Read data from a sheet |
+| `npx google-mcp create -s <name>` | Create a new sheet tab |
+| `npx google-mcp append -s <name> -d '{"col":"val"}'` | Append a row |
+| `npx google-mcp config` | Show current configuration |
+| `npx google-mcp docs-list` | List Google Docs in your Drive |
+| `npx google-mcp docs-read -d <id>` | Read a Google Doc by ID |
+| `npx google-mcp docs-create -t <title>` | Create a new Google Doc |
+
+> 💡 **Backward compatible:** `npx google-sheet-mcp` still works as an alias for `npx google-mcp`.
 
 ## 🧠 MCP Tools (for AI Agents)
 
 Once connected, AI agents get these tools:
 
+### 📊 Sheets
 | Tool | What it does |
 |------|-------------|
 | `sheets_list_tabs` | List all sheet tabs with row/column counts |
@@ -144,6 +160,16 @@ Once connected, AI agents get these tools:
 | `sheets_write_range` | Write a 2D array of values to a range |
 | `sheets_create_tab` | Create a new sheet tab |
 | `sheets_append_row` | Append a row (auto-aligns with headers) |
+
+### 📄 Docs
+| Tool | What it does |
+|------|-------------|
+| `docs_create` | Create a new Google Doc |
+| `docs_read` | Read document content (plain text or structured) |
+| `docs_get` | Get document metadata (title, URL, revision, length) |
+| `docs_write` | Write/append text to a document |
+| `docs_replace` | Find and replace text in a document |
+| `docs_list` | List Google Docs in your Drive |
 
 ## 🔐 Prerequisites
 

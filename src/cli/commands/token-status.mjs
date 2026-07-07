@@ -17,13 +17,13 @@ import {
 } from "../../server/oauth2-client.mjs";
 
 export async function tokenStatusCommand() {
-  console.log(chalk.bold.cyan("\n🔑 Google Sheet MCP — Token Status\n"));
+  console.log(chalk.bold.cyan("\n🔑 Google MCP — Token Status\n"));
 
   const config = loadConfig();
   if (!config) {
     console.error(
       chalk.red(
-        "❌ No configuration found. Run `npx google-sheet-mcp init --auth oauth` first."
+        "❌ No configuration found. Run `npx google-mcp init --auth oauth` first."
       )
     );
     process.exit(1);
@@ -65,7 +65,7 @@ export async function tokenStatusCommand() {
   if (info.status !== "configured") {
     console.log(
       chalk.red(
-        "❌ Token is incomplete. Run `npx google-sheet-mcp init --auth oauth` to reconfigure."
+        "❌ Token is incomplete. Run `npx google-mcp init --auth oauth` to reconfigure."
       )
     );
     process.exit(1);
@@ -98,7 +98,7 @@ export async function tokenStatusCommand() {
         chalk.white("  To replace the token, run:")
       );
       console.log(
-        chalk.cyan("    npx google-sheet-mcp init --auth oauth")
+        chalk.cyan("    npx google-mcp init --auth oauth")
       );
       console.log(
         chalk.gray(

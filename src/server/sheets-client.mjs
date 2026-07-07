@@ -36,7 +36,7 @@ export function createServiceAccountSheetsClient(config) {
   const credentialsPath = config.credentialsPath;
   if (!credentialsPath) {
     throw new Error(
-      "No credentials path. Use GOOGLE_APPLICATION_CREDENTIALS or `npx google-sheet-mcp init`."
+      "No credentials path. Use GOOGLE_APPLICATION_CREDENTIALS or `npx google-mcp init`."
     );
   }
 
@@ -50,7 +50,10 @@ export function createServiceAccountSheetsClient(config) {
 
   const auth = new google.auth.GoogleAuth({
     keyFile: resolvedPath,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive.readonly",
+    ],
   });
 
   return google.sheets({ version: "v4", auth });
@@ -64,7 +67,7 @@ export function createOAuth2SheetsClient(config) {
   const { oauth2 } = config;
   if (!oauth2 || !oauth2.client_id || !oauth2.client_secret || !oauth2.refresh_token) {
     throw new Error(
-      "Missing OAuth2 credentials. Run `npx google-sheet-mcp init --auth oauth` to configure."
+      "Missing OAuth2 credentials. Run `npx google-mcp init --auth oauth` to configure."
     );
   }
 

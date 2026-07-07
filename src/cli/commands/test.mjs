@@ -13,7 +13,7 @@ export async function testCommand(options) {
     console.error(
       chalk.red(
         "❌ No configuration found.\n" +
-          '   Run "npx google-sheet-mcp init" first, or set env vars:\n' +
+          '   Run "npx google-mcp init" first, or set env vars:\n' +
           "   Service Account: GOOGLE_SPREADSHEET_ID + GOOGLE_APPLICATION_CREDENTIALS\n" +
           "   OAuth2:          GOOGLE_SPREADSHEET_ID + GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET + GOOGLE_REFRESH_TOKEN"
       )
@@ -21,7 +21,7 @@ export async function testCommand(options) {
     process.exit(1);
   }
 
-  console.log(chalk.bold.cyan("\n🔗 Google Sheet MCP — Connection Test\n"));
+  console.log(chalk.bold.cyan("\n🔗 Google MCP — Connection Test\n"));
   console.log(chalk.gray(`  Config source: ${config.source}`));
   console.log(chalk.gray(`  Spreadsheet ID: ${config.spreadsheetId}`));
   console.log(chalk.gray(`  Auth type:     ${config.authType || "service-account"}`));
@@ -87,13 +87,13 @@ export async function testCommand(options) {
     console.log();
     console.log(chalk.yellow("Troubleshooting:"));
     if (config.authType === "oauth2") {
-      console.log("  1. Run: npx google-sheet-mcp token-status  (check token health)");
-      console.log("  2. Re-run: npx google-sheet-mcp init --auth oauth  (replace token)");
+      console.log("  1. Run: npx google-mcp token-status  (check token health)");
+      console.log("  2. Re-run: npx google-mcp init --auth oauth  (replace token)");
     } else {
       console.log("  1. Is the service account email added as Editor on the sheet?");
       console.log("  2. Is the Sheets API enabled?");
     }
-    console.log("  3. Run: npx google-sheet-mcp config  (to verify settings)");
+    console.log("  3. Run: npx google-mcp config  (to verify settings)");
     process.exit(1);
   }
 }

@@ -1,7 +1,9 @@
 node_modules/
+credentials/
 credentials.json
 *.credentials.json
 .google-sheet-mcp.json
+.google-sheet-mcp.*.json
 .env
 .env.local
 *.log

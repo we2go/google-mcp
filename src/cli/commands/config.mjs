@@ -11,7 +11,7 @@ export async function configCommand() {
     console.log(chalk.yellow("⚠️  No configuration found."));
     console.log();
     console.log("To set up, run:");
-    console.log(chalk.cyan("  npx google-sheet-mcp init"));
+    console.log(chalk.cyan("  npx google-mcp init"));
     console.log();
     console.log("Or set environment variables:");
     console.log(chalk.cyan("  Service Account: GOOGLE_SPREADSHEET_ID + GOOGLE_APPLICATION_CREDENTIALS"));
@@ -40,7 +40,7 @@ export async function configCommand() {
     );
     console.log();
     console.log(chalk.gray("  Token health:"));
-    console.log(chalk.cyan("    npx google-sheet-mcp token-status"));
+    console.log(chalk.cyan("    npx google-mcp token-status"));
   } else {
     console.log(chalk.white(`  Key file:        ${config.credentialsPath}`));
   }
@@ -60,9 +60,9 @@ export async function configCommand() {
     console.log(
       chalk.white(`  {
     "mcpServers": {
-      "google-sheets": {
+      "google-mcp": {
         "command": "npx",
-        "args": ["google-sheet-mcp"],
+        "args": ["google-mcp"],
         "env": {
           "GOOGLE_SPREADSHEET_ID": "${config.spreadsheetId}",
           "GOOGLE_CLIENT_ID": "${config.oauth2?.client_id}",
@@ -77,9 +77,9 @@ export async function configCommand() {
     console.log(
       chalk.white(`  {
     "mcpServers": {
-      "google-sheets": {
+      "google-mcp": {
         "command": "npx",
-        "args": ["google-sheet-mcp"],
+        "args": ["google-mcp"],
         "env": {
           "GOOGLE_SPREADSHEET_ID": "${config.spreadsheetId}",
           "GOOGLE_APPLICATION_CREDENTIALS": "${config.credentialsPath}"

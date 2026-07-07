@@ -1,9 +1,10 @@
 {
-  "name": "google-sheet-mcp",
-  "version": "1.1.0",
-  "description": "Connect Google Sheets to Cursor, VS Code, Claude Code and AI agents in 3 minutes. MCP Server + CLI installer.",
+  "name": "google-mcp",
+  "version": "2.0.0",
+  "description": "Connect Google Sheets & Docs to Cursor, VS Code, Claude Code and AI agents in 3 minutes. MCP Server + CLI installer.",
   "keywords": [
     "google-sheets",
+    "google-docs",
     "mcp",
     "model-context-protocol",
     "cursor",
@@ -11,6 +12,7 @@
     "claude",
     "ai-agent",
     "spreadsheet",
+    "document",
     "data-source"
   ],
   "license": "MIT",
@@ -22,6 +24,7 @@
   "type": "module",
   "main": "./src/server/server.mjs",
   "bin": {
+    "google-mcp": "src/cli/cli.mjs",
     "google-sheet-mcp": "src/cli/cli.mjs"
   },
   "files": [
@@ -37,6 +40,9 @@
     "test": "node src/cli/cli.mjs test",
     "list": "node src/cli/cli.mjs list",
     "read": "node src/cli/cli.mjs read",
+    "docs-list": "node src/cli/cli.mjs docs-list",
+    "docs-read": "node src/cli/cli.mjs docs-read",
+    "docs-create": "node src/cli/cli.mjs docs-create",
     "prepublishOnly": "echo 'Ready to publish'"
   },
   "dependencies": {

@@ -10,7 +10,7 @@ import { createSheetsClientFromConfig } from "../../server/sheets-client.mjs";
 export async function listCommand() {
   const config = loadConfig();
   if (!config) {
-    console.error(chalk.red("❌ No configuration found. Run `npx google-sheet-mcp init` first."));
+    console.error(chalk.red("❌ No configuration found. Run `npx google-mcp init` first."));
     process.exit(1);
   }
 
@@ -41,7 +41,7 @@ export async function listCommand() {
     console.log();
     console.log(chalk.gray(`  Total: ${sheetList.length} sheet(s)`));
     console.log();
-    console.log(`  Read data: ${chalk.cyan(`npx google-sheet-mcp read -s "${sheetList[0]?.properties?.title || 'Sheet1'}"`)}`);
+    console.log(`  Read data: ${chalk.cyan(`npx google-mcp read -s "${sheetList[0]?.properties?.title || 'Sheet1'}"`)}`);
 
   } catch (err) {
     spinner.fail(`Failed: ${err.message}`);

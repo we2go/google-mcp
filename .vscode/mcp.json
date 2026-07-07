@@ -1,0 +1,11 @@
+{
+  "servers": {
+    "google-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "google-mcp"
+      ]
+    }
+  }
+}

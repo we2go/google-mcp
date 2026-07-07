@@ -37,7 +37,7 @@ export async function initCommand(options) {
     ? "OAuth2 (Personal Google Account)"
     : "Service Account";
 
-  console.log(chalk.bold.cyan(`\n🔗 Google Sheet MCP — Setup Wizard`));
+  console.log(chalk.bold.cyan(`\n🔗 Google MCP — Setup Wizard`));
   console.log(chalk.gray(`   Auth mode: ${authLabel}`));
   console.log();
 
@@ -375,14 +375,17 @@ async function afterConnectionSuccess(configPath, sheetList) {
   console.log(chalk.bold("🚀 Connection verified!"));
   console.log();
   console.log("  Test connection:");
-  console.log(chalk.cyan("    npx google-sheet-mcp test"));
+  console.log(chalk.cyan("    npx google-mcp test"));
+  console.log();
+  console.log("📄 Docs:");
+  console.log(chalk.cyan("    npx google-mcp docs-list"));
   console.log();
   console.log("  List sheets:");
-  console.log(chalk.cyan("    npx google-sheet-mcp list"));
+  console.log(chalk.cyan("    npx google-mcp list"));
   console.log();
   console.log("  Read data:");
   console.log(
-    chalk.cyan(`    npx google-sheet-mcp read -s "${sheetList[0]}"`)
+    chalk.cyan(`    npx google-mcp read -s "${sheetList[0]}"`)
   );
   console.log();
 
@@ -410,7 +413,7 @@ function printOAuthTroubleshooting() {
   console.log(
     "  3. Is the Sheets API enabled in your Google Cloud project?"
   );
-  console.log("  4. Try running `npx google-sheet-mcp token-status`");
+  console.log("  4. Try running `npx google-mcp token-status`");
   console.log();
   console.log(chalk.gray("  Run the command again to retry."));
 }

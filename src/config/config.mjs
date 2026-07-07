@@ -164,3 +164,21 @@ export function extractSpreadsheetId(url) {
 
   return null;
 }
+
+/**
+ * Extract documentId from Google Docs URL.
+ */
+export function extractDocumentId(url) {
+  // Formats:
+  // https://docs.google.com/document/d/<ID>/edit
+  // https://docs.google.com/document/d/<ID>/view
+  const match = url.match(
+    /\/document\/d\/([a-zA-Z0-9_-]+)/
+  );
+  if (match) return match[1];
+
+  // Maybe it's already a raw ID
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(url)) return url;
+
+  return null;
+}

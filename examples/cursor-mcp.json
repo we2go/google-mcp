@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "google-sheets": {
+    "google-mcp": {
       "command": "npx",
-      "args": ["google-sheet-mcp"],
+      "args": ["google-mcp"],
       "env": {
         "GOOGLE_SPREADSHEET_ID": "<your-spreadsheet-id>",
         "GOOGLE_APPLICATION_CREDENTIALS": "./credentials.json"

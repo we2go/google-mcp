@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Google Sheet MCP Server
+ * Google MCP Server — Sheets + Docs
  *
  * stdio-based MCP server for AI agents.
  * Launched by IDE (Cursor, VS Code, Claude, Codex) via npx.
@@ -8,13 +8,21 @@
  * Auth: Service Account (JSON key) or OAuth2 (refresh token with auto-refresh).
  * Config: .google-sheet-mcp.json or env vars.
  *
- * Tools:
+ * Sheet tools:
  *   sheets_list_tabs      — List all sheet tabs
  *   sheets_read_range     — Read data from a range
  *   sheets_get_sheet      — Get spreadsheet metadata
  *   sheets_write_range    — Write values to a range
  *   sheets_create_tab     — Create a new sheet tab
  *   sheets_append_row     — Append a row (header-aware)
+ *
+ * Docs tools:
+ *   docs_create           — Create a new Google Doc
+ *   docs_read             — Read document content (plain text or structured)
+ *   docs_get              — Get document metadata
+ *   docs_write            — Write/append text to a document
+ *   docs_replace          — Find and replace text
+ *   docs_list             — List Google Docs in Drive
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -27,6 +35,12 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { homedir } from "node:os";
 import { createSheetsClientFromConfig } from "./sheets-client.mjs";
+import {
+  createDocsClientFromConfig,
+  createDriveClientFromConfig,
+  extractTextFromDoc,
+  getDocEndIndex,
+} from "./docs-client.mjs";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -93,7 +107,7 @@ function getSheets() {
   _config = loadServerConfig() || loadFileConfig();
   if (!_config) {
     throw new Error(
-      "No configuration. Run `npx google-sheet-mcp init` or set env vars."
+      "No configuration. Run `npx google-mcp init` or set env vars."
     );
   }
 
@@ -105,6 +119,35 @@ function getSpreadsheetId() {
   if (_config) return _config.spreadsheetId;
   _config = loadServerConfig() || loadFileConfig();
   return _config?.spreadsheetId;
+}
+
+// ─── Docs Client ─────────────────────────────────────────────────────────────
+
+let _docs = null;
+let _drive = null;
+
+function getDocs() {
+  if (_docs) return _docs;
+  if (!_config) _config = loadServerConfig() || loadFileConfig();
+  if (!_config) {
+    throw new Error(
+      "No configuration. Run `npx google-mcp init` or set env vars."
+    );
+  }
+  _docs = createDocsClientFromConfig(_config);
+  return _docs;
+}
+
+function getDrive() {
+  if (_drive) return _drive;
+  if (!_config) _config = loadServerConfig() || loadFileConfig();
+  if (!_config) {
+    throw new Error(
+      "No configuration. Run `npx google-mcp init` or set env vars."
+    );
+  }
+  _drive = createDriveClientFromConfig(_config);
+  return _drive;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -272,6 +315,181 @@ async function appendRow({ spreadsheet, sheet, row }) {
   };
 }
 
+// ─── Docs tool implementations ────────────────────────────────────────────────
+
+async function docsCreate({ title }) {
+  const docs = getDocs();
+
+  const res = await docs.documents.create({
+    requestBody: { title },
+  });
+
+  return {
+    documentId: res.data.documentId,
+    title: res.data.title,
+    url: `https://docs.google.com/document/d/${res.data.documentId}/edit`,
+    created: true,
+  };
+}
+
+async function docsRead({ document, extract = "text" }) {
+  const docs = getDocs();
+
+  const res = await docs.documents.get({
+    documentId: document,
+  });
+
+  const metadata = {
+    documentId: res.data.documentId,
+    title: res.data.title,
+    url: `https://docs.google.com/document/d/${res.data.documentId}/edit`,
+    revisionId: res.data.revisionId,
+  };
+
+  if (extract === "text") {
+    const text = extractTextFromDoc(res.data);
+    return {
+      ...metadata,
+      content: text,
+      length: text.length,
+    };
+  }
+
+  // extract === "full" — return structured body
+  return {
+    ...metadata,
+    body: res.data.body,
+  };
+}
+
+async function docsGet({ document }) {
+  const docs = getDocs();
+
+  const res = await docs.documents.get({
+    documentId: document,
+    fields: "documentId,title,revisionId,body/content/endIndex",
+  });
+
+  // Count paragraphs and approximate character count
+  const content = res.data.body?.content || [];
+  const paragraphCount = content.filter((c) => c.paragraph).length;
+  const lastEndIndex = content.length > 0
+    ? content[content.length - 1].endIndex || 0
+    : 0;
+
+  return {
+    documentId: res.data.documentId,
+    title: res.data.title,
+    revisionId: res.data.revisionId,
+    url: `https://docs.google.com/document/d/${res.data.documentId}/edit`,
+    paragraphCount,
+    approximateLength: lastEndIndex - 1,
+  };
+}
+
+async function docsWrite({ document, text, position = "end" }) {
+  const docs = getDocs();
+
+  let insertIndex = 1;
+
+  if (position === "end") {
+    // Get document to find the end index
+    const docRes = await docs.documents.get({
+      documentId: document,
+      fields: "body/content/endIndex",
+    });
+    insertIndex = getDocEndIndex(docRes.data);
+  } else if (position === "start") {
+    insertIndex = 1;
+  } else if (typeof position === "number") {
+    insertIndex = position;
+  }
+
+  // Ensure text ends with newline for proper paragraph separation
+  const insertText = text.endsWith("\n") ? text : text + "\n";
+
+  const res = await docs.documents.batchUpdate({
+    documentId: document,
+    requestBody: {
+      requests: [
+        {
+          insertText: {
+            location: { index: insertIndex },
+            text: insertText,
+          },
+        },
+      ],
+    },
+  });
+
+  return {
+    documentId: document,
+    insertedAt: insertIndex,
+    textLength: text.length,
+    url: `https://docs.google.com/document/d/${document}/edit`,
+    written: true,
+  };
+}
+
+async function docsReplace({ document, find, replace }) {
+  const docs = getDocs();
+
+  const res = await docs.documents.batchUpdate({
+    documentId: document,
+    requestBody: {
+      requests: [
+        {
+          replaceAllText: {
+            containsText: {
+              text: find,
+              matchCase: false,
+            },
+            replaceText: replace,
+          },
+        },
+      ],
+    },
+  });
+
+  return {
+    documentId: document,
+    replaced: true,
+    occurrences: res.data.replies?.[0]?.replaceAllText?.occurrencesChanged || 0,
+    url: `https://docs.google.com/document/d/${document}/edit`,
+  };
+}
+
+async function docsList({ query, limit = 20 }) {
+  const drive = getDrive();
+
+  const pageSize = parseInt(limit, 10) || 20;
+
+  let q = "mimeType='application/vnd.google-apps.document'";
+  if (query) {
+    q += ` and name contains '${query.replace(/'/g, "\\'")}'`;
+  }
+
+  const res = await drive.files.list({
+    q,
+    pageSize,
+    fields: "files(id, name, createdTime, modifiedTime, webViewLink)",
+    orderBy: "modifiedTime desc",
+  });
+
+  const docs = (res.data.files || []).map((f) => ({
+    documentId: f.id,
+    title: f.name,
+    url: f.webViewLink || `https://docs.google.com/document/d/${f.id}/edit`,
+    createdTime: f.createdTime,
+    modifiedTime: f.modifiedTime,
+  }));
+
+  return {
+    total: docs.length,
+    documents: docs,
+  };
+}
+
 // ─── Tool definitions ─────────────────────────────────────────────────────────
 
 const TOOLS = [
@@ -409,14 +627,134 @@ const TOOLS = [
       required: ["sheet", "row"],
     },
   },
+  {
+    name: "docs_create",
+    description:
+      "Create a new Google Doc with the given title. " +
+      "Returns the document ID and URL.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Title of the new document.",
+        },
+      },
+      required: ["title"],
+    },
+  },
+  {
+    name: "docs_read",
+    description:
+      "Read the content of a Google Doc. " +
+      "By default extracts plain text. Use extract='full' for the structured document body.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        document: {
+          type: "string",
+          description: "Google Doc ID (from the URL: /document/d/<ID>/edit).",
+        },
+        extract: {
+          type: "string",
+          enum: ["text", "full"],
+          description: "'text' returns plain text (default), 'full' returns the structured document body.",
+          default: "text",
+        },
+      },
+      required: ["document"],
+    },
+  },
+  {
+    name: "docs_get",
+    description:
+      "Get Google Doc metadata: title, URL, revision, paragraph count, approximate length.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        document: {
+          type: "string",
+          description: "Google Doc ID.",
+        },
+      },
+      required: ["document"],
+    },
+  },
+  {
+    name: "docs_write",
+    description:
+      "Write text to a Google Doc. By default appends to the end of the document. " +
+      "Use position='start' to insert at the beginning, or a numeric index for a specific position.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        document: {
+          type: "string",
+          description: "Google Doc ID.",
+        },
+        text: {
+          type: "string",
+          description: "Text to insert into the document.",
+        },
+        position: {
+          type: "string",
+          description: "Where to insert: 'end' (default), 'start', or a numeric index.",
+        },
+      },
+      required: ["document", "text"],
+    },
+  },
+  {
+    name: "docs_replace",
+    description:
+      "Find and replace text in a Google Doc. " +
+      "Replaces all occurrences of the search text.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        document: {
+          type: "string",
+          description: "Google Doc ID.",
+        },
+        find: {
+          type: "string",
+          description: "Text to search for.",
+        },
+        replace: {
+          type: "string",
+          description: "Replacement text.",
+        },
+      },
+      required: ["document", "find", "replace"],
+    },
+  },
+  {
+    name: "docs_list",
+    description:
+      "List Google Docs in your Drive. Optionally filter by name query.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Optional: filter docs by name (case-insensitive contains).",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of docs to return (default: 20).",
+          default: 20,
+        },
+      },
+    },
+  },
 ];
 
 // ─── Server ───────────────────────────────────────────────────────────────────
 
 const server = new Server(
   {
-    name: "google-sheet-mcp",
-    version: "1.0.0",
+    name: "google-mcp",
+    version: "2.0.0",
   },
   {
     capabilities: {
@@ -454,6 +792,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "sheets_append_row":
         result = await appendRow(args);
         break;
+      case "docs_create":
+        result = await docsCreate(args);
+        break;
+      case "docs_read":
+        result = await docsRead(args);
+        break;
+      case "docs_get":
+        result = await docsGet(args);
+        break;
+      case "docs_write":
+        result = await docsWrite(args);
+        break;
+      case "docs_replace":
+        result = await docsReplace(args);
+        break;
+      case "docs_list":
+        result = await docsList(args);
+        break;
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -469,7 +825,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   } catch (error) {
     const isOAuth = _config?.authType === "oauth2";
     const hint = isOAuth
-      ? "Check token health: `npx google-sheet-mcp token-status`. Re-auth: `npx google-sheet-mcp init --auth oauth`."
+      ? "Check token health: `npx google-mcp token-status`. Re-auth: `npx google-mcp init --auth oauth`."
       : "Check that the spreadsheet is shared with the service account email.";
 
     return {
@@ -499,26 +855,26 @@ async function main() {
   const config = loadServerConfig() || loadFileConfig();
   if (!config) {
     console.error(
-      "[google-sheet-mcp] ⚠️  No configuration found. " +
-        "Run `npx google-sheet-mcp init` or set env vars."
+      "[google-mcp] ⚠️  No configuration found. " +
+        "Run `npx google-mcp init` or set env vars."
     );
   } else {
     console.error(
-      `[google-sheet-mcp] ✅ Configured: ${config.spreadsheetId} (${config.authType || "service-account"})`
+      `[google-mcp] ✅ Configured: ${config.spreadsheetId} (${config.authType || "service-account"})`
     );
     if (config.authType === "oauth2") {
       console.error(
-        `[google-sheet-mcp] 🔑 OAuth2 mode — token auto-refreshes. Check health: npx google-sheet-mcp token-status`
+        `[google-mcp] 🔑 OAuth2 mode — token auto-refreshes. Check health: npx google-mcp token-status`
       );
     }
   }
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("[google-sheet-mcp] Server started (stdio) — waiting for IDE connection...");
+  console.error("[google-mcp] Server started (stdio) — waiting for IDE connection...");
 }
 
 main().catch((err) => {
-  console.error("[google-sheet-mcp] Fatal error:", err);
+  console.error("[google-mcp] Fatal error:", err);
   process.exit(1);
 });
