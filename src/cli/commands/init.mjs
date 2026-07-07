@@ -155,6 +155,24 @@ async function setupServiceAccount(spreadsheetId) {
 }
 
 /**
+ * Try to parse a pasted JSON credentials blob.
+ * Many users paste their entire credentials.json instead of just the client_id.
+ * Returns { client_id, client_secret } or null.
+ */
+function tryParseCredentialsJson(input) {
+  try {
+    const obj = JSON.parse(input);
+    const data = obj.installed || obj.web || obj;
+    if (data.client_id && data.client_secret) {
+      return { client_id: data.client_id, client_secret: data.client_secret };
+    }
+  } catch {
+    // Not JSON — that's fine, it's a regular client_id string
+  }
+  return null;
+}
+
+/**
  * OAuth2 setup flow — simple, no technical jargon.
  *
  * Auto-detects credentials from:
@@ -218,22 +236,37 @@ async function setupOAuth2() {
         type: "input",
         name: "clientId",
         message: "Client ID (ends with .apps.googleusercontent.com):",
-        validate: (input) =>
-          input.length > 10
+        validate: (input) => {
+          // Try to parse as JSON — user might have pasted the whole credentials file
+          const parsed = tryParseCredentialsJson(input);
+          if (parsed) return true;
+          return input.length > 10
             ? true
-            : "Too short. Should look like: 123-abc.apps.googleusercontent.com",
+            : "Too short. Should look like: 123-abc.apps.googleusercontent.com";
+        },
       },
       {
         type: "input",
         name: "clientSecret",
         message: "Client Secret:",
-        validate: (input) =>
-          input.length > 5 ? true : "Too short.",
+        validate: (input) => {
+          // Accept GOCSPX-... format or skip if already extracted from JSON
+          if (input.startsWith("GOCSPX-") || input.length > 5) return true;
+          return "Too short.";
+        },
       },
     ]);
 
     clientId = answers.clientId;
     clientSecret = answers.clientSecret;
+
+    // Smart parse: if user pasted JSON into Client ID field, extract both values
+    const parsedFromId = tryParseCredentialsJson(clientId);
+    if (parsedFromId) {
+      clientId = parsedFromId.client_id;
+      clientSecret = parsedFromId.client_secret;
+      console.log(chalk.green("  ✅ Extracted Client ID & Secret from pasted JSON"));
+    }
 
     // Save for future use
     saveOAuthCredentials(clientId, clientSecret);
@@ -285,13 +318,19 @@ function loadOAuthCredentials() {
   const paths = [
     resolve(process.cwd(), "credentials/oauth2-client.json"),
     resolve(process.cwd(), "oauth2-client.json"),
+    resolve(process.cwd(), "client_secret.json"),
+    resolve(process.cwd(), ".google-sheet-mcp.json"),
   ];
 
   for (const p of paths) {
     if (existsSync(p)) {
       try {
         const raw = JSON.parse(readFileSync(p, "utf-8"));
-        // Handle both formats: { installed: { client_id, client_secret } } and { client_id, client_secret }
+        // .google-sheet-mcp.json — may have oauth2 block
+        if (raw.oauth2?.client_id) {
+          return { client_id: raw.oauth2.client_id, client_secret: raw.oauth2.client_secret };
+        }
+        // OAuth2 client JSON — { installed: { client_id, client_secret } } or { client_id, client_secret }
         const data = raw.installed || raw.web || raw;
         if (data.client_id && data.client_secret) {
           return { client_id: data.client_id, client_secret: data.client_secret };
