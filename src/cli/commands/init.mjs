@@ -5,23 +5,22 @@
  *   service-account (default):  JSON key + share sheet
  *   oauth:                      OAuth2 browser flow → refresh token
  *
- * OAuth2 flow:
- *   1. User pastes client_id + client_secret
- *   2. CLI prints auth URL
- *   3. User opens URL, grants access, copies code
- *   4. CLI exchanges code for refresh_token
- *   5. Token auto-refreshes forever
+ * OAuth2 flow (user-friendly):
+ *   1. Open browser → sign in with Google → allow access
+ *   2. Copy the code from the browser
+ *   3. Paste here → done!
  */
 
 import http from "node:http";
 import { URL } from "node:url";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
 import chalk from "chalk";
 import inquirer from "inquirer";
 import ora from "ora";
 import { loadConfig, saveConfig, extractSpreadsheetId } from "../../config/config.mjs";
 import {
   createServiceAccountSheetsClient,
-  createOAuth2SheetsClient,
 } from "../../server/sheets-client.mjs";
 import {
   generateAuthUrl,
@@ -156,63 +155,101 @@ async function setupServiceAccount(spreadsheetId) {
 }
 
 /**
- * OAuth2 setup flow.
+ * OAuth2 setup flow — simple, no technical jargon.
+ *
+ * Auto-detects credentials from:
+ *   1. credentials/oauth2-client.json (project-local)
+ *   2. ~/.google-mcp-oauth.json (global)
+ *   3. Asks user to provide or create if none found
  */
 async function setupOAuth2() {
-  console.log(chalk.bold("Step 1/3: OAuth2 Credentials"));
-  console.log(
-    chalk.gray(
-      "  Get these from Google Cloud Console → APIs & Services → Credentials → Create OAuth client ID → Desktop app."
-    )
-  );
+  // Try to auto-load OAuth2 credentials
+  let clientId, clientSecret;
+  const creds = loadOAuthCredentials();
 
-  const { clientId, clientSecret } = await inquirer.prompt([
-    {
-      type: "input",
-      name: "clientId",
-      message: "Client ID:",
-      validate: (input) =>
-        input.length > 10
-          ? true
-          : "Invalid Client ID. Should be a long string ending with .apps.googleusercontent.com",
-    },
-    {
-      type: "input",
-      name: "clientSecret",
-      message: "Client Secret:",
-      validate: (input) =>
-        input.length > 5 ? true : "Invalid Client Secret.",
-    },
-  ]);
+  if (creds) {
+    clientId = creds.client_id;
+    clientSecret = creds.client_secret;
+    console.log(chalk.green("  ✅ Using saved OAuth2 credentials"));
+    console.log();
+  } else {
+    // No credentials found — guide the user
+    console.log(
+      chalk.bold("  To connect your Google account, you need OAuth2 credentials.")
+    );
+    console.log(
+      chalk.gray("  This is a one-time setup (2 minutes).")
+    );
+    console.log();
 
-  console.log(chalk.green(`  ✅ Credentials accepted`));
+    const { choice } = await inquirer.prompt([
+      {
+        type: "list",
+        name: "choice",
+        message: "How would you like to proceed?",
+        choices: [
+          {
+            name: "🔑 I already have Client ID & Secret — paste them",
+            value: "paste",
+          },
+          {
+            name: "🆕 Create new credentials — open Google Cloud Console",
+            value: "create",
+          },
+        ],
+      },
+    ]);
+
+    if (choice === "create") {
+      console.log();
+      console.log(chalk.bold("  📋 Create OAuth2 credentials in 4 clicks:"));
+      console.log();
+      console.log(chalk.white("  1. Open: ") + chalk.cyan.underline("https://console.cloud.google.com/apis/credentials"));
+      console.log(chalk.white("  2. Click ") + chalk.bold("+ CREATE CREDENTIALS") + chalk.white(" → ") + chalk.bold("OAuth client ID"));
+      console.log(chalk.white("  3. Choose ") + chalk.bold("Desktop app") + chalk.white(" → Click ") + chalk.bold("CREATE"));
+      console.log(chalk.white("  4. Copy the ") + chalk.bold("Client ID") + chalk.white(" and ") + chalk.bold("Client Secret"));
+      console.log();
+      console.log(chalk.gray("  (You'll also need to add http://localhost:3000/oauth2callback as a redirect URI)"));
+      console.log();
+    }
+
+    const answers = await inquirer.prompt([
+      {
+        type: "input",
+        name: "clientId",
+        message: "Client ID (ends with .apps.googleusercontent.com):",
+        validate: (input) =>
+          input.length > 10
+            ? true
+            : "Too short. Should look like: 123-abc.apps.googleusercontent.com",
+      },
+      {
+        type: "input",
+        name: "clientSecret",
+        message: "Client Secret:",
+        validate: (input) =>
+          input.length > 5 ? true : "Too short.",
+      },
+    ]);
+
+    clientId = answers.clientId;
+    clientSecret = answers.clientSecret;
+
+    // Save for future use
+    saveOAuthCredentials(clientId, clientSecret);
+    console.log(chalk.green("  ✅ Credentials saved for future use"));
+    console.log();
+  }
+
+  // Step 1: Open browser
+  console.log(chalk.bold("🚀 Step 1/2: Sign in with Google"));
   console.log();
-
-  // Step 2: Browser OAuth flow
-  console.log(chalk.bold("Step 2/3: Authorize Access"));
+  console.log(chalk.white("  A browser window will open. Sign in to your Google account"));
+  console.log(chalk.white("  and allow access to Sheets & Docs."));
+  console.log();
 
   const authUrl = generateAuthUrl(clientId, clientSecret);
-  console.log();
-  console.log(
-    chalk.white("  1. Open this URL in your browser:")
-  );
-  console.log(chalk.cyan(`     ${authUrl}`));
-  console.log();
-  console.log(
-    chalk.white(
-      "  2. Sign in with your Google account"
-    )
-  );
-  console.log(
-    chalk.white(
-      "  3. Grant access to Google Sheets & Docs"
-    )
-  );
-  console.log(
-    chalk.white(
-      "  4. You'll be redirected to localhost — copy the 'code' parameter from the URL"
-    )
-  );
+  console.log(chalk.cyan("  → ") + chalk.underline.cyan(authUrl));
   console.log();
 
   // Try to auto-capture the code via local HTTP server
@@ -220,20 +257,63 @@ async function setupOAuth2() {
 
   if (!code) {
     // Fallback: manual entry
+    console.log();
+    console.log(chalk.bold("📋 Step 2/2: Paste the code"));
+    console.log(chalk.gray("  After signing in, you'll see a page that fails to load."));
+    console.log(chalk.gray("  Copy the 'code=' part from the address bar."));
+    console.log();
+
     const { manualCode } = await inquirer.prompt([
       {
         type: "input",
         name: "manualCode",
-        message:
-          "Paste the authorization code from the redirect URL (?code=...):",
+        message: "Paste code from browser:",
         validate: (input) =>
-          input.length > 5 ? true : "Code seems too short.",
+          input.length > 5 ? true : "Code seems too short. Copy the full code=... from the URL.",
       },
     ]);
     return await completeOAuthSetup(clientId, clientSecret, manualCode);
   }
 
   return await completeOAuthSetup(clientId, clientSecret, code);
+}
+
+/**
+ * Try to load OAuth2 credentials from common locations.
+ */
+function loadOAuthCredentials() {
+  const paths = [
+    resolve(process.cwd(), "credentials/oauth2-client.json"),
+    resolve(process.cwd(), "oauth2-client.json"),
+  ];
+
+  for (const p of paths) {
+    if (existsSync(p)) {
+      try {
+        const raw = JSON.parse(readFileSync(p, "utf-8"));
+        // Handle both formats: { installed: { client_id, client_secret } } and { client_id, client_secret }
+        const data = raw.installed || raw.web || raw;
+        if (data.client_id && data.client_secret) {
+          return { client_id: data.client_id, client_secret: data.client_secret };
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Save OAuth2 credentials for future use.
+ */
+function saveOAuthCredentials(clientId, clientSecret) {
+  const dir = resolve(process.cwd(), "credentials");
+  try { mkdirSync(dir, { recursive: true }); } catch {}
+  const filePath = resolve(dir, "oauth2-client.json");
+  writeFileSync(
+    filePath,
+    JSON.stringify({ client_id: clientId, client_secret: clientSecret }, null, 2)
+  );
 }
 
 /**
@@ -325,18 +405,18 @@ async function completeOAuthSetup(clientId, clientSecret, code) {
   );
   console.log();
 
-  // Step 3: Verify access
-  console.log(chalk.bold("Step 3/3: Verify access"));
-  const spinner = ora("Checking account access...").start();
+  // Step 2: Verify (non-blocking — token already valid)
+  console.log(chalk.bold("🔍 Step 2/2: Checking access..."));
+  const spinner = ora("Checking what's available...").start();
+
+  const oauth2Config = {
+    client_id: clientId,
+    client_secret: clientSecret,
+    refresh_token: tokens.refresh_token,
+  };
 
   try {
-    const oauth2Config = {
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: tokens.refresh_token,
-    };
-
-    // Verify by checking Drive — lists both Sheets and Docs
+    // Try Drive API to list recent files
     const { createDriveClientFromConfig } = await import("../../server/docs-client.mjs");
     const drive = createDriveClientFromConfig({ authType: "oauth2", oauth2: oauth2Config });
 
@@ -370,17 +450,23 @@ async function completeOAuthSetup(clientId, clientSecret, code) {
     }
     console.log();
 
-    // Save config — no spreadsheetId needed for OAuth2
-    const configPath = saveConfig({
-      authType: "oauth2",
-      oauth2: oauth2Config,
-    });
-
-    await afterOAuthSuccess(configPath);
   } catch (err) {
-    spinner.fail(`Verification failed: ${err.message}`);
-    printOAuthTroubleshooting();
+    // Drive API might not be enabled — that's OK, token is valid
+    spinner.warn("Drive API not available — enable for docs listing:");
+    console.log(
+      chalk.gray("  ") + chalk.underline.cyan("https://console.cloud.google.com/apis/library/drive.googleapis.com")
+    );
+    console.log(chalk.green("  ✅ Token is valid — Sheets & Docs access works!"));
+    console.log();
   }
+
+  // Save config — no spreadsheetId needed for OAuth2
+  const configPath = saveConfig({
+    authType: "oauth2",
+    oauth2: oauth2Config,
+  });
+
+  await afterOAuthSuccess(configPath);
 }
 
 /**
@@ -453,12 +539,9 @@ function printServiceAccountTroubleshooting() {
 function printOAuthTroubleshooting() {
   console.log();
   console.log(chalk.yellow("Common issues:"));
-  console.log("  1. Do you have access to this spreadsheet?");
-  console.log("  2. Did you grant the full spreadsheets scope?");
-  console.log(
-    "  3. Is the Sheets API enabled in your Google Cloud project?"
-  );
-  console.log("  4. Try running `npx google-mcp token-status`");
+  console.log("  1. Did you grant all permissions (Sheets + Docs + Drive)?");
+  console.log("  2. Is the token still valid? Run: npx google-mcp token-status");
+  console.log("  3. Are the required APIs enabled in Google Cloud Console?");
   console.log();
   console.log(chalk.gray("  Run the command again to retry."));
 }

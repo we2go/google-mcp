@@ -1,6 +1,6 @@
 {
   "name": "google-sheet-mcp",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Connect Google Sheets & Docs to Cursor, VS Code, Claude Code and AI agents in 3 minutes. MCP Server + CLI installer.",
   "keywords": [
     "google-sheets",
