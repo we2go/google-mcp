@@ -7,10 +7,20 @@ import ora from "ora";
 import { loadConfig } from "../../config/config.mjs";
 import { createSheetsClientFromConfig } from "../../server/sheets-client.mjs";
 
-export async function listCommand() {
+export async function listCommand(options) {
   const config = loadConfig();
   if (!config) {
     console.error(chalk.red("❌ No configuration found. Run `npx google-mcp init` first."));
+    process.exit(1);
+  }
+
+  const spreadsheetId = options.id || options.sheet || config.spreadsheetId;
+  if (!spreadsheetId) {
+    console.error(
+      chalk.red("❌ No spreadsheet ID provided.\n") +
+      chalk.gray("  Use -i <id> to specify: npx google-mcp list -i YOUR_SPREADSHEET_ID\n") +
+      chalk.gray("  Or run `npx google-mcp init` to set a default.")
+    );
     process.exit(1);
   }
 
@@ -19,7 +29,7 @@ export async function listCommand() {
   try {
     const sheets = createSheetsClientFromConfig(config);
     const res = await sheets.spreadsheets.get({
-      spreadsheetId: config.spreadsheetId,
+      spreadsheetId,
       fields: "properties.title,sheets.properties",
     });
 

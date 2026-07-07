@@ -53,7 +53,9 @@ program
 
 program
   .command("list")
-  .description("List all sheets in the connected spreadsheet")
+  .description("List all sheets in a spreadsheet")
+  .option("-i, --id <spreadsheetId>", "Google Spreadsheet ID (if not configured)")
+  .option("-s, --sheet <spreadsheetId>", "Alias for --id")
   .action(listCommand);
 
 program

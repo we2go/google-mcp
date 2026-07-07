@@ -121,6 +121,22 @@ function getSpreadsheetId() {
   return _config?.spreadsheetId;
 }
 
+/**
+ * Resolve spreadsheet ID: use provided or default.
+ * Throws if neither is available.
+ */
+function resolveSpreadsheetId(provided) {
+  if (provided) return provided;
+  const defaultId = getSpreadsheetId();
+  if (!defaultId) {
+    throw new Error(
+      "No spreadsheetId configured and none provided. " +
+      "Pass `spreadsheet` parameter, or run `npx google-mcp init` to set a default."
+    );
+  }
+  return defaultId;
+}
+
 // ─── Docs Client ─────────────────────────────────────────────────────────────
 
 let _docs = null;
@@ -169,7 +185,7 @@ function rowsToObjects(rows, skipHeader = false) {
 
 async function listTabs({ spreadsheet }) {
   const sheets = getSheets();
-  const id = spreadsheet || getSpreadsheetId();
+  const id = resolveSpreadsheetId(spreadsheet);
 
   const res = await sheets.spreadsheets.get({
     spreadsheetId: id,
@@ -198,7 +214,7 @@ async function readRange({
   value_render = "FORMATTED_VALUE",
 }) {
   const sheets = getSheets();
-  const id = spreadsheet || getSpreadsheetId();
+  const id = resolveSpreadsheetId(spreadsheet);
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: id,
@@ -220,7 +236,7 @@ async function readRange({
 
 async function getSheet({ spreadsheet }) {
   const sheets = getSheets();
-  const id = spreadsheet || getSpreadsheetId();
+  const id = resolveSpreadsheetId(spreadsheet);
 
   const res = await sheets.spreadsheets.get({
     spreadsheetId: id,
@@ -245,7 +261,7 @@ async function getSheet({ spreadsheet }) {
 
 async function writeRange({ spreadsheet, range, values }) {
   const sheets = getSheets();
-  const id = spreadsheet || getSpreadsheetId();
+  const id = resolveSpreadsheetId(spreadsheet);
 
   const res = await sheets.spreadsheets.values.update({
     spreadsheetId: id,
@@ -265,7 +281,7 @@ async function writeRange({ spreadsheet, range, values }) {
 
 async function createTab({ spreadsheet, sheetName }) {
   const sheets = getSheets();
-  const id = spreadsheet || getSpreadsheetId();
+  const id = resolveSpreadsheetId(spreadsheet);
 
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId: id,
@@ -289,7 +305,7 @@ async function createTab({ spreadsheet, sheetName }) {
 
 async function appendRow({ spreadsheet, sheet, row }) {
   const sheets = getSheets();
-  const id = spreadsheet || getSpreadsheetId();
+  const id = resolveSpreadsheetId(spreadsheet);
 
   // Get headers to align columns
   const headerRes = await sheets.spreadsheets.values.get({
@@ -859,8 +875,10 @@ async function main() {
         "Run `npx google-mcp init` or set env vars."
     );
   } else {
+    const hasSheetId = !!config.spreadsheetId;
     console.error(
-      `[google-mcp] ✅ Configured: ${config.spreadsheetId} (${config.authType || "service-account"})`
+      `[google-mcp] ✅ Configured: ${config.authType || "service-account"}` +
+      (hasSheetId ? ` (${config.spreadsheetId})` : " — all sheets/docs accessible")
     );
     if (config.authType === "oauth2") {
       console.error(

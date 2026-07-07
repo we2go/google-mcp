@@ -57,12 +57,13 @@ function detectAuthFromEnv() {
 
 /**
  * Validate a config object has all required fields.
+ * spreadsheetId is optional for OAuth2 (access all spreadsheets/docs).
  */
 function isValidConfig(config) {
-  if (!config || !config.spreadsheetId) return false;
+  if (!config) return false;
 
   if (config.authType === "service-account") {
-    return !!config.credentialsPath;
+    return !!config.spreadsheetId && !!config.credentialsPath;
   }
 
   if (config.authType === "oauth2") {
@@ -130,10 +131,16 @@ export function saveConfig(
 
   const config = {
     ...existing,
-    spreadsheetId,
     authType: authType || existing.authType || "service-account",
     sheets: sheets || existing.sheets || [],
   };
+
+  // spreadsheetId — optional for OAuth2
+  if (spreadsheetId !== undefined) {
+    config.spreadsheetId = spreadsheetId;
+  } else if (existing.spreadsheetId) {
+    config.spreadsheetId = existing.spreadsheetId;
+  }
 
   if (authType === "oauth2" || existing.authType === "oauth2") {
     config.oauth2 = oauth2 || existing.oauth2 || {};

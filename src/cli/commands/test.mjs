@@ -23,7 +23,7 @@ export async function testCommand(options) {
 
   console.log(chalk.bold.cyan("\n🔗 Google MCP — Connection Test\n"));
   console.log(chalk.gray(`  Config source: ${config.source}`));
-  console.log(chalk.gray(`  Spreadsheet ID: ${config.spreadsheetId}`));
+  console.log(chalk.gray(`  Spreadsheet ID: ${config.spreadsheetId || "(all spreadsheets accessible)"}`));
   console.log(chalk.gray(`  Auth type:     ${config.authType || "service-account"}`));
   if (config.authType === "service-account") {
     console.log(chalk.gray(`  Key file:      ${config.credentialsPath}`));
@@ -35,6 +35,51 @@ export async function testCommand(options) {
   const spinner = ora("Testing connection...").start();
 
   try {
+    // OAuth2 without spreadsheetId: check token + list recent docs
+    if (!config.spreadsheetId) {
+      const { createDriveClientFromConfig } = await import("../../server/docs-client.mjs");
+      const drive = createDriveClientFromConfig(config);
+
+      const [sheetsRes, docsRes] = await Promise.all([
+        drive.files.list({
+          q: "mimeType='application/vnd.google-apps.spreadsheet'",
+          pageSize: 3,
+          fields: "files(id, name, modifiedTime)",
+          orderBy: "modifiedTime desc",
+        }),
+        drive.files.list({
+          q: "mimeType='application/vnd.google-apps.document'",
+          pageSize: 3,
+          fields: "files(id, name, modifiedTime)",
+          orderBy: "modifiedTime desc",
+        }),
+      ]);
+
+      spinner.succeed("Connected successfully");
+      console.log();
+
+      const sheets = sheetsRes.data.files || [];
+      const docs = docsRes.data.files || [];
+
+      console.log(chalk.bold("📊 Recent spreadsheets:"));
+      if (sheets.length === 0) console.log(chalk.gray("  (none found)"));
+      sheets.forEach((s) => {
+        console.log(chalk.green(`  ✓ ${s.name}`) + chalk.gray(`  (${s.id})`));
+      });
+
+      console.log();
+      console.log(chalk.bold("📄 Recent documents:"));
+      if (docs.length === 0) console.log(chalk.gray("   (none found)"));
+      docs.forEach((d) => {
+        console.log(chalk.green(`  ✓ ${d.name}`) + chalk.gray(`  (${d.id})`));
+      });
+
+      console.log();
+      console.log(chalk.green("✅ Ready — AI agents can access all your Sheets & Docs!"));
+      return;
+    }
+
+    // Service Account or OAuth2 with spreadsheetId
     const sheets = createSheetsClientFromConfig(config);
     const res = await sheets.spreadsheets.get({
       spreadsheetId: config.spreadsheetId,

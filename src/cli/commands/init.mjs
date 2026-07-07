@@ -46,7 +46,7 @@ export async function initCommand(options) {
   if (existing) {
     console.log(
       chalk.yellow(
-        `⚠️  Already configured (${existing.source}): ${existing.spreadsheetId} (${existing.authType || "service-account"})`
+        `⚠️  Already configured (${existing.source}): ${existing.spreadsheetId || "all spreadsheets/docs"} (${existing.authType || "service-account"})`
       )
     );
     const { overwrite } = await inquirer.prompt([
@@ -64,31 +64,36 @@ export async function initCommand(options) {
     console.log();
   }
 
-  // Step 1: Google Sheet URL
-  console.log(chalk.bold("Step 1/4: Google Sheet"));
-  const { sheetUrl } = await inquirer.prompt([
-    {
-      type: "input",
-      name: "sheetUrl",
-      message: "Paste Google Sheet URL:",
-      validate: (input) => {
-        const id = extractSpreadsheetId(input);
-        if (!id)
-          return "Invalid Google Sheet URL. Expected: https://docs.google.com/spreadsheets/d/<ID>/edit";
-        return true;
-      },
-    },
-  ]);
-  const spreadsheetId = extractSpreadsheetId(sheetUrl);
-  console.log(chalk.green(`  ✅ Extracted ID: ${spreadsheetId}`));
-  console.log();
+  // For Service Account: need a specific sheet URL
+  // For OAuth2: SKIP — user gets access to ALL their sheets/docs
+  let spreadsheetId = null;
 
-  if (isOAuth) {
-    // ─── OAuth2 Flow ──────────────────────────────────────────────────────
-    await setupOAuth2(spreadsheetId);
-  } else {
-    // ─── Service Account Flow (default) ───────────────────────────────────
+  if (!isOAuth) {
+    // Step 1: Google Sheet URL (service account only)
+    console.log(chalk.bold("Step 1/4: Google Sheet"));
+    const { sheetUrl } = await inquirer.prompt([
+      {
+        type: "input",
+        name: "sheetUrl",
+        message: "Paste Google Sheet URL:",
+        validate: (input) => {
+          const id = extractSpreadsheetId(input);
+          if (!id)
+            return "Invalid Google Sheet URL. Expected: https://docs.google.com/spreadsheets/d/<ID>/edit";
+          return true;
+        },
+      },
+    ]);
+    spreadsheetId = extractSpreadsheetId(sheetUrl);
+    console.log(chalk.green(`  ✅ Extracted ID: ${spreadsheetId}`));
+    console.log();
+
     await setupServiceAccount(spreadsheetId);
+  } else {
+    // OAuth2: no sheet needed — access to ALL sheets/docs
+    console.log(chalk.gray("  ℹ️  OAuth2 gives access to ALL your Google Sheets & Docs — no specific URL needed."));
+    console.log();
+    await setupOAuth2();
   }
 }
 
@@ -153,8 +158,8 @@ async function setupServiceAccount(spreadsheetId) {
 /**
  * OAuth2 setup flow.
  */
-async function setupOAuth2(spreadsheetId) {
-  console.log(chalk.bold("Step 2/4: OAuth2 Credentials"));
+async function setupOAuth2() {
+  console.log(chalk.bold("Step 1/3: OAuth2 Credentials"));
   console.log(
     chalk.gray(
       "  Get these from Google Cloud Console → APIs & Services → Credentials → Create OAuth client ID → Desktop app."
@@ -183,8 +188,8 @@ async function setupOAuth2(spreadsheetId) {
   console.log(chalk.green(`  ✅ Credentials accepted`));
   console.log();
 
-  // Step 3: Browser OAuth flow
-  console.log(chalk.bold("Step 3/4: Authorize Access"));
+  // Step 2: Browser OAuth flow
+  console.log(chalk.bold("Step 2/3: Authorize Access"));
 
   const authUrl = generateAuthUrl(clientId, clientSecret);
   console.log();
@@ -200,7 +205,7 @@ async function setupOAuth2(spreadsheetId) {
   );
   console.log(
     chalk.white(
-      "  3. Grant access to Google Sheets"
+      "  3. Grant access to Google Sheets & Docs"
     )
   );
   console.log(
@@ -225,10 +230,10 @@ async function setupOAuth2(spreadsheetId) {
           input.length > 5 ? true : "Code seems too short.",
       },
     ]);
-    return await completeOAuthSetup(spreadsheetId, clientId, clientSecret, manualCode);
+    return await completeOAuthSetup(clientId, clientSecret, manualCode);
   }
 
-  return await completeOAuthSetup(spreadsheetId, clientId, clientSecret, code);
+  return await completeOAuthSetup(clientId, clientSecret, code);
 }
 
 /**
@@ -284,9 +289,9 @@ function captureOAuthCode() {
 }
 
 /**
- * Exchange code for tokens and test connection.
+ * Exchange code for tokens and verify access.
  */
-async function completeOAuthSetup(spreadsheetId, clientId, clientSecret, code) {
+async function completeOAuthSetup(clientId, clientSecret, code) {
   console.log();
   const exchangeSpinner = ora("Exchanging code for tokens...").start();
 
@@ -320,9 +325,9 @@ async function completeOAuthSetup(spreadsheetId, clientId, clientSecret, code) {
   );
   console.log();
 
-  // Step 4: Test connection
-  console.log(chalk.bold("Step 4/4: Verify connection"));
-  const spinner = ora("Connecting to Google Sheets...").start();
+  // Step 3: Verify access
+  console.log(chalk.bold("Step 3/3: Verify access"));
+  const spinner = ora("Checking account access...").start();
 
   try {
     const oauth2Config = {
@@ -331,36 +336,49 @@ async function completeOAuthSetup(spreadsheetId, clientId, clientSecret, code) {
       refresh_token: tokens.refresh_token,
     };
 
-    const sheets = createOAuth2SheetsClient({ oauth2: oauth2Config });
-    const res = await sheets.spreadsheets.get({
-      spreadsheetId,
-      fields: "properties.title,sheets.properties",
-    });
+    // Verify by checking Drive — lists both Sheets and Docs
+    const { createDriveClientFromConfig } = await import("../../server/docs-client.mjs");
+    const drive = createDriveClientFromConfig({ authType: "oauth2", oauth2: oauth2Config });
 
-    const title = res.data.properties.title;
-    const sheetList = (res.data.sheets ?? []).map(
-      (s) => s.properties?.title || "(unnamed)"
-    );
+    const [sheetsRes, docsRes] = await Promise.all([
+      drive.files.list({
+        q: "mimeType='application/vnd.google-apps.spreadsheet'",
+        pageSize: 5,
+        fields: "files(id, name)",
+        orderBy: "modifiedTime desc",
+      }),
+      drive.files.list({
+        q: "mimeType='application/vnd.google-apps.document'",
+        pageSize: 5,
+        fields: "files(id, name)",
+        orderBy: "modifiedTime desc",
+      }),
+    ]);
 
-    spinner.succeed(`Connected to "${chalk.bold(title)}" (as you)`);
+    const recentSheets = sheetsRes.data.files || [];
+    const recentDocs = docsRes.data.files || [];
+
+    spinner.succeed(`Connected as ${chalk.bold("you")}`);
     console.log(
-      chalk.green(
-        `  Found ${sheetList.length} sheet(s): ${sheetList.join(", ")}`
-      )
+      chalk.green(`  📊 ${recentSheets.length} recent spreadsheet(s), 📄 ${recentDocs.length} recent doc(s)`)
     );
+    if (recentSheets.length > 0) {
+      console.log(chalk.gray(`    Sheets: ${recentSheets.map(s => s.name).join(", ")}`));
+    }
+    if (recentDocs.length > 0) {
+      console.log(chalk.gray(`    Docs: ${recentDocs.map(d => d.name).join(", ")}`));
+    }
     console.log();
 
-    // Save config
+    // Save config — no spreadsheetId needed for OAuth2
     const configPath = saveConfig({
-      spreadsheetId,
       authType: "oauth2",
       oauth2: oauth2Config,
-      sheets: sheetList,
     });
 
-    await afterConnectionSuccess(configPath, sheetList);
+    await afterOAuthSuccess(configPath);
   } catch (err) {
-    spinner.fail(`Connection failed: ${err.message}`);
+    spinner.fail(`Verification failed: ${err.message}`);
     printOAuthTroubleshooting();
   }
 }
@@ -390,6 +408,33 @@ async function afterConnectionSuccess(configPath, sheetList) {
   console.log();
 
   // Step 4: Generate IDE MCP configs
+  await generateIDEConfigs({ cwd: process.cwd() });
+}
+
+/**
+ * Post-OAuth (no specific spreadsheet): show success and generate IDE configs.
+ */
+async function afterOAuthSuccess(configPath) {
+  console.log(chalk.green(`✅ Configuration saved to ${configPath}`));
+  console.log();
+
+  console.log(chalk.bold("🚀 You're all set!"));
+  console.log();
+  console.log(chalk.white("  Your AI agent now has access to ALL your Google Sheets & Docs."));
+  console.log();
+  console.log(chalk.bold("  Quick commands:"));
+  console.log(chalk.cyan("    npx google-mcp docs-list"));
+  console.log(chalk.gray("      List all your Google Docs"));
+  console.log(chalk.cyan("    npx google-mcp list -i <spreadsheet-id>"));
+  console.log(chalk.gray("      List sheets in any spreadsheet by ID"));
+  console.log();
+  console.log(chalk.bold("  From AI agents:"));
+  console.log(chalk.gray('    "Read Sheet1 from spreadsheet <id>"'));
+  console.log(chalk.gray('    "List all my Google Docs"'));
+  console.log(chalk.gray('    "Create a new document titled Report"'));
+  console.log();
+
+  // Generate IDE MCP configs
   await generateIDEConfigs({ cwd: process.cwd() });
 }
 
